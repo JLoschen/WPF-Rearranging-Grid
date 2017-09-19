@@ -5,7 +5,7 @@ namespace RearrangingGrid
 {
     /// <summary>
     /// Class to allow Visible property of RowDefinition to be bindable
-    /// </summary>
+    /// </summary> 
     public class HidableRowDefinition : RowDefinition
     {
         public static DependencyProperty VisibleProperty;

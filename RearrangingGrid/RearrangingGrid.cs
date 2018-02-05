@@ -20,11 +20,29 @@ namespace RearrangingGrid
         public static DependencyProperty ShortRowSpanProperty = DependencyProperty.RegisterAttached("ShortRowSpan", typeof(int), typeof(RearrangingGrid), new PropertyMetadata(-1));
         public static readonly DependencyProperty ShortThresholdProperty = DependencyProperty.Register("ShortThreshold", typeof(double), typeof(RearrangingGrid), new PropertyMetadata(-1D));
 
-        //https://stackoverflow.com/questions/1122595/how-do-you-create-a-read-only-dependency-property
-        private static readonly DependencyPropertyKey LayoutModePropertyKey
-            = DependencyProperty.RegisterReadOnly("LayoutMode", typeof(LayoutMode), typeof(RearrangingGrid),
-                new PropertyMetadata(LayoutMode.Regular));
-        public static readonly DependencyProperty ReadOnlyPropProperty = LayoutModePropertyKey.DependencyProperty;
+        ////https://stackoverflow.com/questions/1122595/how-do-you-create-a-read-only-dependency-property
+        //private static readonly DependencyPropertyKey LayoutModePropertyKey
+        //    = DependencyProperty.RegisterReadOnly("LayoutMode", typeof(LayoutMode), typeof(RearrangingGrid),
+        //        new PropertyMetadata(LayoutMode.Regular));
+        //public static readonly DependencyProperty ReadOnlyPropProperty = LayoutModePropertyKey.DependencyProperty;
+        public static readonly DependencyProperty LayoutModeProperty = DependencyProperty.Register("LayoutMode", typeof(LayoutMode), typeof(RearrangingGrid), new PropertyMetadata(LayoutMode.Regular, OnLayoutModeChanged));
+
+        private static void OnLayoutModeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var oldLayout = (LayoutMode)e.OldValue;
+            var newLayout = (LayoutMode)e.NewValue;
+
+            if (oldLayout == LayoutMode.Regular || newLayout == LayoutMode.Regular)//single swap
+            {
+                
+            }
+        }
+
+        public LayoutMode LayoutMode
+        {
+            get { return (LayoutMode)GetValue(LayoutModeProperty); }
+            set { SetValue(LayoutModeProperty, value); }
+        }
 
         public double NarrowThreshold
         {
@@ -119,7 +137,7 @@ namespace RearrangingGrid
         }
         #endregion
 
-        private LayoutMode _gridState = LayoutMode.Regular;
+        //private LayoutMode _gridState = LayoutMode.Regular;
         public RearrangingGrid()
         {
             SizeChanged += OnSizeChanged;
@@ -129,102 +147,114 @@ namespace RearrangingGrid
         {
             if (e.HeightChanged && IsLoaded)
             {
-                var shouldSwitchToShortValues = ActualHeight < ShortThreshold && _gridState == LayoutMode.Regular;
-                var shouldSwitchToRegularValues = ActualHeight > ShortThreshold && _gridState == LayoutMode.Short;
-
-                if (shouldSwitchToShortValues || shouldSwitchToRegularValues)
-                {
-                    _gridState = shouldSwitchToRegularValues ? LayoutMode.Regular : LayoutMode.Short;
-                    SetValue(LayoutModePropertyKey, _gridState);
-
-                    if (shouldSwitchToShortValues)
-                        SwitchingToShort?.Invoke(this, null);//TODO implement event args
-                    else
-                        SwitchingToRegular?.Invoke(this, null);
-
-                    var uiElements = Children.Cast<UIElement>().ToList();
-
-                    //Row Changed
-                    foreach (var element in uiElements.Where(el => GetShortRow(el) != -1))
-                    {
-                        var temp = GetRow(element);
-                        SetRow(element, GetShortRow(element));
-                        SetShortRow(element, temp);
-                    }
-
-                    //Column Changed
-                    foreach (var element in uiElements.Where(el => GetShortColumn(el) != -1))
-                    {
-                        var temp = GetColumn(element);
-                        SetColumn(element, GetShortColumn(element));
-                        SetShortColumn(element, temp);
-                    }
-
-                    //ColumnSpan Changed
-                    foreach (var element in uiElements.Where(el => GetShortColumnSpan(el) != -1))
-                    {
-                        var temp = GetColumnSpan(element);
-                        SetColumnSpan(element, GetShortColumnSpan(element));
-                        SetShortColumnSpan(element, temp);
-                    }
-
-                    //RowSpan Changed
-                    foreach (var element in uiElements.Where(el => GetShortRowSpan(el) != -1))
-                    {
-                        var temp = GetRowSpan(element);
-                        SetRowSpan(element, GetShortRowSpan(element));
-                        SetShortRowSpan(element, temp);
-                    }
-                }
+                SetShortOrRegularMode();
             }
             else if (e.WidthChanged && IsLoaded)
             {
-                var shouldSwitchToNarrowValues = ActualWidth < NarrowThreshold && _gridState == LayoutMode.Regular;
-                var shouldSwitchToRegularValues = ActualWidth > NarrowThreshold && _gridState == LayoutMode.Narrow;
+                SetNarrowOrRegularMode();
+            }
+        }
 
-                if (shouldSwitchToNarrowValues || shouldSwitchToRegularValues)
+        public void SetNarrowOrRegularMode()
+        {
+            var shouldSwitchToNarrowValues = ActualWidth < NarrowThreshold && /*_gridState*/ LayoutMode == LayoutMode.Regular;
+            var shouldSwitchToRegularValues = ActualWidth > NarrowThreshold && /*_gridState*/ LayoutMode == LayoutMode.Narrow;
+
+            if (shouldSwitchToNarrowValues || shouldSwitchToRegularValues)
+            {
+                //_gridState = shouldSwitchToRegularValues ? LayoutMode.Regular : LayoutMode.Narrow;
+                //SetValue(LayoutModePropertyKey,_gridState);
+                LayoutMode = shouldSwitchToRegularValues ? LayoutMode.Regular : LayoutMode.Narrow;
+
+                if (shouldSwitchToNarrowValues)
+                    SwitchingToNarrow?.Invoke(this, null); //TODO implement event args
+                else
+                    SwitchingToRegular?.Invoke(this, null);
+
+                var uiElements = Children.Cast<UIElement>().ToList();
+
+                //Row Changed
+                foreach (var element in uiElements.Where(el => GetNarrowRow(el) != -1))
                 {
-                    _gridState = shouldSwitchToRegularValues ? LayoutMode.Regular : LayoutMode.Narrow;
-                    SetValue(LayoutModePropertyKey,_gridState);
+                    var temp = GetRow(element);
+                    SetRow(element, GetNarrowRow(element));
+                    SetNarrowRow(element, temp);
+                }
 
-                    if (shouldSwitchToNarrowValues)
-                        SwitchingToNarrow?.Invoke(this, null);//TODO implement event args
-                    else
-                        SwitchingToRegular?.Invoke(this, null);
+                //Column Changed
+                foreach (var element in uiElements.Where(el => GetNarrowColumn(el) != -1))
+                {
+                    var temp = GetColumn(element);
+                    SetColumn(element, GetNarrowColumn(element));
+                    SetNarrowColumn(element, temp);
+                }
 
-                    var uiElements = Children.Cast<UIElement>().ToList();
+                //ColumnSpan Changed
+                foreach (var element in uiElements.Where(el => GetNarrowColumnSpan(el) != -1))
+                {
+                    var temp = GetColumnSpan(element);
+                    SetColumnSpan(element, GetNarrowColumnSpan(element));
+                    SetNarrowColumnSpan(element, temp);
+                }
 
-                    //Row Changed
-                    foreach (var element in uiElements.Where(el => GetNarrowRow(el) != -1))
-                    {
-                        var temp = GetRow(element);
-                        SetRow(element, GetNarrowRow(element));
-                        SetNarrowRow(element, temp);
-                    } 
-                    
-                    //Column Changed
-                    foreach (var element in uiElements.Where(el => GetNarrowColumn(el) != -1))
-                    {
-                        var temp = GetColumn(element);
-                        SetColumn(element, GetNarrowColumn(element));
-                        SetNarrowColumn(element, temp);
-                    }
+                //RowSpan Changed
+                foreach (var element in uiElements.Where(el => GetNarrowRowSpan(el) != -1))
+                {
+                    var temp = GetRowSpan(element);
+                    SetRowSpan(element, GetNarrowRowSpan(element));
+                    SetNarrowRowSpan(element, temp);
+                }
+            }
+        }
 
-                    //ColumnSpan Changed
-                    foreach (var element in uiElements.Where(el => GetNarrowColumnSpan(el) != -1))
-                    {
-                        var temp = GetColumnSpan(element);
-                        SetColumnSpan(element, GetNarrowColumnSpan(element));
-                        SetNarrowColumnSpan(element, temp);
-                    }
+        public void SetShortOrRegularMode()
+        {
+            var shouldSwitchToShortValues = ActualHeight < ShortThreshold && LayoutMode == LayoutMode.Regular;
+            var shouldSwitchToRegularValues = ActualHeight > ShortThreshold && LayoutMode == LayoutMode.Short;
 
-                    //RowSpan Changed
-                    foreach (var element in uiElements.Where(el => GetNarrowRowSpan(el) != -1))
-                    {
-                        var temp = GetRowSpan(element);
-                        SetRowSpan(element, GetNarrowRowSpan(element));
-                        SetNarrowRowSpan(element, temp);
-                    }
+            if (shouldSwitchToShortValues || shouldSwitchToRegularValues)
+            {
+                //_gridState = shouldSwitchToRegularValues ? LayoutMode.Regular : LayoutMode.Short;
+                //SetValue(LayoutModePropertyKey, _gridState);
+                LayoutMode = shouldSwitchToRegularValues ? LayoutMode.Regular : LayoutMode.Short;
+
+                if (shouldSwitchToShortValues)
+                    SwitchingToShort?.Invoke(this, null); //TODO implement event args
+                else
+                    SwitchingToRegular?.Invoke(this, null);
+
+                var uiElements = Children.Cast<UIElement>().ToList();
+
+                //Row Changed
+                foreach (var element in uiElements.Where(el => GetShortRow(el) != -1))
+                {
+                    var temp = GetRow(element);
+                    SetRow(element, GetShortRow(element));
+                    SetShortRow(element, temp);
+                }
+
+                //Column Changed
+                foreach (var element in uiElements.Where(el => GetShortColumn(el) != -1))
+                {
+                    var temp = GetColumn(element);
+                    SetColumn(element, GetShortColumn(element));
+                    SetShortColumn(element, temp);
+                }
+
+                //ColumnSpan Changed
+                foreach (var element in uiElements.Where(el => GetShortColumnSpan(el) != -1))
+                {
+                    var temp = GetColumnSpan(element);
+                    SetColumnSpan(element, GetShortColumnSpan(element));
+                    SetShortColumnSpan(element, temp);
+                }
+
+                //RowSpan Changed
+                foreach (var element in uiElements.Where(el => GetShortRowSpan(el) != -1))
+                {
+                    var temp = GetRowSpan(element);
+                    SetRowSpan(element, GetShortRowSpan(element));
+                    SetShortRowSpan(element, temp);
                 }
             }
         }
